@@ -1,283 +1,270 @@
-import BerandaLama from './components/BerandaLama';
 import React, { useState, useEffect } from 'react';
-import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, setDoc, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore';
-import { getAuth, signInAnonymously } from 'firebase/auth';
-import { Bike, Car, Utensils, Wallet, MessageSquare, MapPin, Send, User } from 'lucide-react';
+import { 
+  Search, User, MapPin, ChevronDown, Wallet, QrCode, 
+  PlusCircle, MoreHorizontal, Bike, Utensils, Box, 
+  ShoppingBag, Car, Ticket, Newspaper, Home, 
+  Percent, Clock, MessageCircle, Star, ShieldCheck, 
+  ChevronRight
+} from 'lucide-react';
 
-// ==========================================
-// PENTING: GANTI DENGAN KODE FIREBASE CONFIG ANDA SENDIRI
-// ==========================================
-const firebaseConfig = {
-  apiKey: "AIzaSyBP5Akc2pFVVbA3qnuT_acZEC9Hc-valM8",
-  authDomain: "bangjek-app-pro.firebaseapp.com",
-  projectId: "bangjek-app-pro",
-  storageBucket: "bangjek-app-pro.firebasestorage.app",
-  messagingSenderId: "774157577251",
-  appId: "1:774157577251:web:9cb8722faa0f805077d596"
-};
-
-// Inisialisasi Firebase
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
+// Custom CSS for hiding scrollbars and simple animations
+const style = `
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  .animate-fade-in-up {
+    animation: fadeInUp 0.6s ease-out forwards;
+  }
+  
+  .stagger-1 { animation-delay: 0.1s; }
+  .stagger-2 { animation-delay: 0.2s; }
+  .stagger-3 { animation-delay: 0.3s; }
+  .stagger-4 { animation-delay: 0.4s; }
+`;
 
 export default function App() {
-  const [user, setUser] = useState(null);
-  const [saldo, setSaldo] = useState(50000);
-  const [poin, setPoin] = useState(0);
-  const [layanan, setLayanan] = useState('');
-  const [lokasi, setLokasi] = useState('');
-  const [statusOrder, setStatusOrder] = useState('');
-  const [chatInput, setChatInput] = useState('');
-  const [chats, setChats] = useState([]);
+  const [activeTab, setActiveTab] = useState('home');
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  // 1. Autentikasi Anonim Otomatis & Sinkronisasi Real-time
   useEffect(() => {
-    signInAnonymously(auth)
-      .then((cred) => {
-        const userId = cred.user.uid;
-        setUser(userId);
-        
-        // Buat atau sinkronisasi dokumen pengguna di Firestore
-        const userRef = doc(db, "users", userId);
-        setDoc(userRef, { id: userId }, { merge: true });
-
-        // Dengarkan perubahan data (Real-time Listener)
-        const unsubscribe = onSnapshot(userRef, (snapshot) => {
-          if (snapshot.exists()) {
-            const data = snapshot.data();
-            if (data.saldo !== undefined) setSaldo(data.saldo);
-            if (data.poin !== undefined) setPoin(data.poin);
-            if (data.chats !== undefined) setChats(data.chats);
-            if (data.statusOrder !== undefined) setStatusOrder(data.statusOrder);
-          }
-        });
-        return () => unsubscribe();
-      })
-      .catch((err) => console.error("Firebase Auth Error:", err));
+    setIsLoaded(true);
   }, []);
 
-  // 2. Sistem Order & Perhitungan Monetisasi Admin (Komisi 15%)
-  const handleOrder = async (jenisLayanan, tarifDasar) => {
-    if (!user) return;
-    if (saldo < tarifDasar) {
-      alert("Saldo tidak mencukupi! Silakan top up.");
-      return;
-    }
+  // --- MOCK DATA ---
+  const services = [
+    { id: 1, name: 'BangRide', icon: Bike, color: 'bg-green-500', textColor: 'text-white' },
+    { id: 2, name: 'BangCar', icon: Car, color: 'bg-green-500', textColor: 'text-white' },
+    { id: 3, name: 'BangFood', icon: Utensils, color: 'bg-red-500', textColor: 'text-white' },
+    { id: 4, name: 'BangSend', icon: Box, color: 'bg-green-500', textColor: 'text-white' },
+    { id: 5, name: 'BangMart', icon: ShoppingBag, color: 'bg-red-500', textColor: 'text-white' },
+    { id: 6, name: 'BangTix', icon: Ticket, color: 'bg-blue-500', textColor: 'text-white' },
+    { id: 7, name: 'BangNews', icon: Newspaper, color: 'bg-orange-500', textColor: 'text-white' },
+    { id: 8, name: 'More', icon: MoreHorizontal, color: 'bg-gray-200', textColor: 'text-gray-600' },
+  ];
 
-    setLayanan(jenisLayanan);
-    setStatusOrder('Mencari Driver...');
-    
-    const userRef = doc(db, "users", user);
-    
-    // Simulasi Driver Menemukan Penumpang setelah 3 detik
-    setTimeout(async () => {
-      setStatusOrder('Driver Menuju Lokasi Anda');
-      
-      // Simulasi Perjalanan Selesai setelah 6 detik
-      setTimeout(async () => {
-        const potonganSaldo = tarifDasar;
-        const komisiAdmin = potonganSaldo * 0.15; // Komisi Admin 15%
-        const poinDidapat = Math.floor(potonganSaldo / 1000); // Sistem Poin Loyalitas
+  const promos = [
+    { id: 1, title: 'Diskon 50% BangFood', desc: 'Makan siang lebih hemat hari ini!', bg: 'bg-gradient-to-r from-orange-400 to-red-500' },
+    { id: 2, title: 'Cashback BangRide', desc: 'Pergi ngantor dapet cashback 10rb.', bg: 'bg-gradient-to-r from-green-400 to-emerald-600' },
+    { id: 3, title: 'Gratis Ongkir Mart', desc: 'Belanja bulanan bebas biaya antar.', bg: 'bg-gradient-to-r from-blue-400 to-indigo-500' },
+  ];
 
-        await updateDoc(userRef, {
-          saldo: saldo - potonganSaldo,
-          poin: poin + poinDidapat,
-          statusOrder: 'Selesai'
-        });
+  const nearbyRestos = [
+    { id: 1, name: 'Ayam Geprek Mas Bro', rating: 4.8, dist: '1.2 km', img: 'https://images.unsplash.com/photo-1569058242253-92a9c755a0ec?auto=format&fit=crop&q=80&w=200&h=200' },
+    { id: 2, name: 'Kopi Kenangan Mantan', rating: 4.9, dist: '0.8 km', img: 'https://images.unsplash.com/photo-1559525839-b184a4d698c7?auto=format&fit=crop&q=80&w=200&h=200' },
+    { id: 3, name: 'Sate Khas Senayan', rating: 4.7, dist: '2.5 km', img: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&q=80&w=200&h=200' },
+  ];
 
-        alert(`Hore! Perjalanan selesai.\nTarif: Rp ${potonganSaldo.toLocaleString()}\nKomisi masuk ke kas Admin: Rp ${komisiAdmin.toLocaleString()}\nAnda mendapat: +${poinDidapat} Poin!`);
-        setLayanan('');
-      }, 6000);
-    }, 3000);
-  };
-
-  // 3. Fitur Real-time Chat dengan Driver
-  const sendChatMessage = async (e) => {
-    e.preventDefault();
-    if (!chatInput.trim() || !user) return;
-
-    const userRef = doc(db, "users", user);
-    const pesanBaru = {
-      sender: 'Anda',
-      text: chatInput,
-      timestamp: new Date().toLocaleTimeString()
-    };
-
-    await updateDoc(userRef, {
-      chats: arrayUnion(pesanBaru)
-    });
-
-    setChatInput('');
-
-    // Simulasi balasan otomatis dari Driver setelah 2 detik
-    setTimeout(async () => {
-      const balasanDriver = {
-        sender: 'Driver',
-        text: 'Siap kak, mohon ditunggu sesuai titik jemput ya! 👍',
-        timestamp: new Date().toLocaleTimeString()
-      };
-      await updateDoc(userRef, {
-        chats: arrayUnion(balasanDriver)
-      });
-    }, 2000);
-  };
+  const newsFeed = [
+    { id: 1, title: 'Fitur Baru: BangPay Later!', excerpt: 'Sekarang kamu bisa belanja dulu bayar bulan depan. Cek syarat & ketentuannya.', img: 'https://images.unsplash.com/photo-1563013544-824ae1b704d3?auto=format&fit=crop&q=80&w=400&h=200' },
+    { id: 2, title: 'Tips Aman Berkendara', excerpt: 'Pastikan helm klik dan selalu patuhi rambu lalu lintas bersama driver kami.', img: 'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&q=80&w=400&h=200' },
+  ];
 
   return (
-    <div className="min-h-screen bg-slate-100 flex justify-center items-center p-4">
-      {/* Container Ponsel Simulator */}
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border-8 border-slate-800 relative flex flex-col h-[800px]">
-        
-        {/* Status Bar Atas */}
-        <div className="bg-slate-900 text-white px-6 py-3 flex justify-between items-center text-xs font-semibold">
-          <span>Bangjek Mobile</span>
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
-            <span>Cloud Connected</span>
-          </div>
-        </div>
-
-        {/* Info Wallet & Profile */}
-        <div className="bg-gradient-to-r from-green-600 to-emerald-500 p-6 text-white rounded-b-2xl shadow-md">
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-2">
-              <User size={20} className="opacity-80" />
-              <span className="text-sm font-medium tracking-wide">ID: {user ? user.substring(0, 6) : 'Memuat...'}...</span>
-            </div>
-            <div className="bg-white/20 px-3 py-1 rounded-full text-xs font-bold">PRO LEVEL</div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white/10 p-3 rounded-xl border border-white/10">
-              <div className="flex items-center gap-2 text-xs opacity-90 mb-1">
-                <Wallet size={14} /> <span>Kantong Saldo</span>
-              </div>
-              <p className="text-xl font-bold">Rp {saldo.toLocaleString()}</p>
-            </div>
-            <div className="bg-white/10 p-3 rounded-xl border border-white/10">
-              <div className="text-xs opacity-90 mb-1">⭐ Poin Loyalitas</div>
-              <p className="text-xl font-bold">{poin} Poin</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Layanan & Peta (Main Content) */}
-        <div className="flex-1 p-6 overflow-y-auto space-y-6">
+    <>
+      <style>{style}</style>
+      <div className="min-h-screen bg-gray-100 flex justify-center items-center font-sans">
+        {/* Mobile Device Simulator Container */}
+        <div className="w-full max-w-md h-[100dvh] bg-white relative overflow-hidden shadow-2xl sm:rounded-[2.5rem] sm:border-8 sm:border-gray-900 flex flex-col">
           
-          {/* Peta Integrasi OpenStreetMap */}
-          <div className="rounded-2xl overflow-hidden shadow-inner border border-slate-200 h-40 bg-slate-200 relative">
-            <iframe 
-              title="peta"
-              className="w-full h-full border-0 grayscale-[20%] contrast-[110%]" 
-              src="https://maps.google.com/maps?q=jakarta&t=&z=13&ie=UTF8&iwloc=&output=embed"
-            />
-            <div className="absolute top-3 left-3 bg-white px-3 py-1.5 rounded-xl shadow-md text-xs font-bold flex items-center gap-1.5 text-slate-700">
-              <MapPin size={12} className="text-red-500" /> Live Tracker Map
+          {/* Main Scrollable Content */}
+          <div className="flex-1 overflow-y-auto hide-scrollbar pb-24">
+            
+            {/* Header Section (Green Background) */}
+            <div className="bg-[#00aa13] pt-12 pb-20 px-4 rounded-b-[2rem] relative z-0">
+              
+              {/* Top Bar: Search & Profile */}
+              <div className="flex items-center gap-3 mb-6">
+                <div className="flex-1 bg-white/20 backdrop-blur-sm rounded-full flex items-center px-4 py-2 border border-white/30 text-white shadow-inner active:scale-95 transition-transform">
+                  <Search size={20} className="text-white/80" />
+                  <input 
+                    type="text" 
+                    placeholder="Find services, food, or places" 
+                    className="bg-transparent border-none outline-none text-white placeholder-white/80 w-full ml-3 text-sm"
+                    readOnly
+                  />
+                </div>
+                <button className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-[#00aa13] shadow-md active:scale-90 transition-transform flex-shrink-0 border-2 border-white/50">
+                  <User size={20} />
+                </button>
+              </div>
+
+              {/* Location Picker */}
+              <div className="flex items-center text-white active:opacity-70 transition-opacity w-max">
+                <div className="w-6 h-6 bg-green-700/50 rounded-full flex items-center justify-center mr-2">
+                  <MapPin size={14} />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-xs text-green-100 font-medium">Your Location</span>
+                  <div className="flex items-center font-bold text-sm">
+                    Jl. Sudirman No. 45, Pekanbaru <ChevronDown size={16} className="ml-1" />
+                  </div>
+                </div>
+              </div>
             </div>
+
+            {/* BangPay Card (Overlapping) */}
+            <div className={`px-4 -mt-10 relative z-10 opacity-0 ${isLoaded ? 'animate-fade-in-up stagger-1' : ''}`}>
+              <div className="bg-[#0f60b6] rounded-2xl p-4 shadow-lg text-white relative overflow-hidden">
+                {/* Background Decoration */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
+                
+                <div className="flex justify-between items-center mb-4 relative z-10">
+                  <div className="flex items-center gap-2">
+                    <Wallet size={20} />
+                    <span className="font-bold text-lg tracking-tight">BangPay</span>
+                  </div>
+                  <div className="bg-white/20 px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-md flex items-center gap-1 border border-white/10">
+                    <ShieldCheck size={14}/>
+                    Protected
+                  </div>
+                </div>
+                
+                <div className="flex gap-4 relative z-10">
+                  <div className="bg-white rounded-xl p-3 flex-1 text-gray-800 shadow-sm active:scale-95 transition-transform flex flex-col justify-center">
+                    <span className="text-xs text-gray-500 font-medium mb-1">Balance</span>
+                    <span className="font-bold text-base leading-none">Rp 245.000</span>
+                    <div className="text-[10px] text-[#00aa13] font-semibold mt-1 flex items-center">
+                      Tap to view history <ChevronRight size={10} />
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-1">
+                    <button className="flex flex-col items-center justify-center gap-1 w-16 bg-white/10 rounded-xl active:bg-white/20 transition-colors">
+                      <PlusCircle size={22} className="text-white" />
+                      <span className="text-[10px] font-medium">Top Up</span>
+                    </button>
+                    <button className="flex flex-col items-center justify-center gap-1 w-16 bg-white/10 rounded-xl active:bg-white/20 transition-colors">
+                      <QrCode size={22} className="text-white" />
+                      <span className="text-[10px] font-medium">Pay</span>
+                    </button>
+                    <button className="flex flex-col items-center justify-center gap-1 w-16 bg-white/10 rounded-xl active:bg-white/20 transition-colors">
+                      <MoreHorizontal size={22} className="text-white" />
+                      <span className="text-[10px] font-medium">More</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Services Grid */}
+            <div className={`px-4 mt-6 opacity-0 ${isLoaded ? 'animate-fade-in-up stagger-2' : ''}`}>
+              <div className="grid grid-cols-4 gap-y-6 gap-x-2">
+                {services.map((service) => (
+                  <button key={service.id} className="flex flex-col items-center gap-2 group active:scale-95 transition-transform">
+                    <div className={`w-14 h-14 ${service.color} rounded-2xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow`}>
+                      <service.icon size={28} className={service.textColor} strokeWidth={2.5} />
+                    </div>
+                    <span className="text-xs font-medium text-gray-700">{service.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="h-2 w-full bg-gray-100 my-6"></div>
+
+            {/* Promos Section */}
+            <div className={`mt-2 opacity-0 ${isLoaded ? 'animate-fade-in-up stagger-3' : ''}`}>
+              <div className="px-4 flex justify-between items-end mb-3">
+                <h2 className="text-lg font-bold text-gray-800">Spesial buat kamu</h2>
+                <button className="text-sm text-[#00aa13] font-semibold active:opacity-70">Lihat Semua</button>
+              </div>
+              <div className="flex overflow-x-auto hide-scrollbar px-4 gap-4 pb-4 snap-x">
+                {promos.map((promo) => (
+                  <div key={promo.id} className={`${promo.bg} min-w-[260px] h-32 rounded-2xl p-4 text-white flex flex-col justify-end shadow-md snap-center active:scale-[0.98] transition-transform relative overflow-hidden`}>
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-white/20 rounded-full blur-xl -mr-8 -mt-8"></div>
+                    <h3 className="font-bold text-lg mb-1 relative z-10">{promo.title}</h3>
+                    <p className="text-xs opacity-90 relative z-10">{promo.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Nearby Restos Section */}
+            <div className={`mt-4 opacity-0 ${isLoaded ? 'animate-fade-in-up stagger-4' : ''}`}>
+              <div className="px-4 flex justify-between items-end mb-3">
+                <h2 className="text-lg font-bold text-gray-800">Terdekat & Terlaris</h2>
+              </div>
+              <div className="flex overflow-x-auto hide-scrollbar px-4 gap-4 pb-4 snap-x">
+                {nearbyRestos.map((resto) => (
+                  <div key={resto.id} className="min-w-[160px] bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden snap-start active:scale-95 transition-transform">
+                    <img src={resto.img} alt={resto.name} className="w-full h-24 object-cover" />
+                    <div className="p-3">
+                      <h3 className="font-bold text-sm text-gray-800 truncate mb-1">{resto.name}</h3>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center text-xs font-semibold text-gray-600">
+                          <Star size={12} className="text-yellow-400 mr-1 fill-yellow-400" />
+                          {resto.rating}
+                        </div>
+                        <span className="text-xs text-gray-500 font-medium">{resto.dist}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* News Feed Section */}
+            <div className="mt-4 px-4 pb-8">
+              <h2 className="text-lg font-bold text-gray-800 mb-4">Info & Berita Bangjek</h2>
+              <div className="space-y-4">
+                {newsFeed.map((news) => (
+                  <div key={news.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden active:scale-[0.98] transition-transform">
+                    <img src={news.img} alt={news.title} className="w-full h-36 object-cover" />
+                    <div className="p-4">
+                      <h3 className="font-bold text-base text-gray-800 mb-1">{news.title}</h3>
+                      <p className="text-sm text-gray-500 leading-relaxed">{news.excerpt}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
           </div>
 
-          {/* Form Input Lokasi */}
-          {!statusOrder && (
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Lokasi Tujuan Anda</label>
-              <input 
-                type="text" 
-                placeholder="Mau pergi ke mana hari ini?" 
-                value={lokasi}
-                onChange={(e) => setLokasi(e.target.value)}
-                className="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition-all font-medium"
-              />
-            </div>
-          )}
-
-          {/* Grid Menu Utama */}
-          {!statusOrder && (
-            <div className="space-y-3">
-              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Pilih Armada Bangjek</h3>
-              <div className="grid grid-cols-3 gap-3">
-                <button 
-                  disabled={!lokasi}
-                  onClick={() => handleOrder('BangRide', 12000)}
-                  className={`p-4 rounded-2xl flex flex-col items-center justify-center gap-2 border transition-all ${lokasi ? 'bg-green-50 border-green-200 hover:scale-105 active:scale-95 text-green-700' : 'bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed'}`}
-                >
-                  <Bike size={28} />
-                  <span className="text-xs font-bold">BangRide</span>
-                  <span className="text-[10px] bg-green-200 text-green-800 px-1.5 py-0.5 rounded-md font-semibold">12K</span>
-                </button>
-
-                <button 
-                  disabled={!lokasi}
-                  onClick={() => handleOrder('BangCar', 25000)}
-                  className={`p-4 rounded-2xl flex flex-col items-center justify-center gap-2 border transition-all ${lokasi ? 'bg-blue-50 border-blue-200 hover:scale-105 active:scale-95 text-blue-700' : 'bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed'}`}
-                >
-                  <Car size={28} />
-                  <span className="text-xs font-bold">BangCar</span>
-                  <span className="text-[10px] bg-blue-200 text-blue-800 px-1.5 py-0.5 rounded-md font-semibold">25K</span>
-                </button>
-
-                <button 
-                  disabled={!lokasi}
-                  onClick={() => handleOrder('BangFood', 15000)}
-                  className={`p-4 rounded-2xl flex flex-col items-center justify-center gap-2 border transition-all ${lokasi ? 'bg-orange-50 border-orange-200 hover:scale-105 active:scale-95 text-orange-700' : 'bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed'}`}
-                >
-                  <Utensils size={28} />
-                  <span className="text-xs font-bold">BangFood</span>
-                  <span className="text-[10px] bg-orange-200 text-orange-800 px-1.5 py-0.5 rounded-md font-semibold">15K</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Sistem Status Order Real-time & Fitur Chat */}
-          {statusOrder && (
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-4 shadow-sm animate-fade-in">
-              <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-                <div>
-                  <p className="text-xs font-bold text-slate-400 uppercase">Layanan Aktif ({layanan})</p>
-                  <p className="text-sm font-extrabold text-slate-700 animate-pulse">{statusOrder}</p>
-                </div>
-                {statusOrder === 'Selesai' && (
-                  <button onClick={() => { setStatusOrder(''); setLokasi(''); }} className="text-xs font-bold text-green-600 bg-green-100 px-3 py-1.5 rounded-xl hover:bg-green-200 transition-all">Pesan Lagi</button>
-                )}
-              </div>
-
-              {/* Tampilan Riwayat Chat */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
-                  <MessageSquare size={14} /> Hubungi Driver Anda
-                </div>
-                <div className="h-40 overflow-y-auto bg-white border border-slate-100 rounded-xl p-3 space-y-2 text-xs flex flex-col shadow-inner">
-                  {chats.length === 0 ? (
-                    <p className="text-slate-400 text-center my-auto italic">Belum ada obrolan dengan driver.</p>
-                  ) : (
-                    chats.map((c, idx) => (
-                      <div key={idx} className={`p-2 rounded-xl max-w-[80%] ${c.sender === 'Anda' ? 'bg-green-500 text-white self-end rounded-tr-none' : 'bg-slate-200 text-slate-800 self-start rounded-tl-none'}`}>
-                        <p className="font-bold text-[10px] mb-0.5 opacity-75">{c.sender}</p>
-                        <p className="font-medium break-all">{c.text}</p>
-                        <span className="text-[8px] block text-right mt-1 opacity-60">{c.timestamp}</span>
-                      </div>
-                    ))
+          {/* Bottom Navigation */}
+          <div className="absolute bottom-0 w-full bg-white border-t border-gray-200 pb-safe pt-2 px-6 flex justify-between items-center z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] rounded-b-[2rem] sm:rounded-b-[1.8rem]">
+            {[
+              { id: 'home', icon: Home, label: 'Beranda' },
+              { id: 'promos', icon: Percent, label: 'Promo' },
+              { id: 'orders', icon: Clock, label: 'Pesanan' },
+              { id: 'chat', icon: MessageCircle, label: 'Chat' },
+            ].map((tab) => (
+              <button 
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex flex-col items-center justify-center p-2 min-w-[60px] active:scale-90 transition-all duration-200 ${activeTab === tab.id ? 'text-[#00aa13]' : 'text-gray-400 hover:text-gray-600'}`}
+              >
+                <div className={`relative ${activeTab === tab.id ? 'bg-green-50 p-2 rounded-xl mb-1' : 'mb-1'}`}>
+                  <tab.icon 
+                    size={24} 
+                    className={`transition-all duration-300 ${activeTab === tab.id ? 'scale-110' : ''}`} 
+                    strokeWidth={activeTab === tab.id ? 2.5 : 2}
+                  />
+                  {/* Notification dot for Chat */}
+                  {tab.id === 'chat' && (
+                    <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></div>
                   )}
                 </div>
+                <span className={`text-[10px] font-semibold ${activeTab === tab.id ? 'text-[#00aa13]' : ''}`}>
+                  {tab.label}
+                </span>
+              </button>
+            ))}
+          </div>
 
-                {/* Input Kirim Chat */}
-                {statusOrder !== 'Selesai' && (
-                  <form onSubmit={sendChatMessage} className="flex gap-2">
-                    <input 
-                      type="text" 
-                      placeholder="Ketik pesan untuk driver..." 
-                      value={chatInput}
-                      onChange={(e) => setChatInput(e.target.value)}
-                      className="flex-1 px-4 py-2.5 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-green-500 font-medium"
-                    />
-                    <button type="submit" className="bg-green-600 text-white p-2.5 rounded-xl hover:bg-green-700 transition-all active:scale-95"><Send size={14} /></button>
-                  </form>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </div>
-    </div>
+    </>
   );
 }
